@@ -6,7 +6,6 @@ import "../Ownable.sol";
 contract TripWithEthereum is Ownable {
     
     struct Participant {
-        string name;
         address ethAddress;
         uint balance;
     }
@@ -16,9 +15,11 @@ contract TripWithEthereum is Ownable {
         uint  price;
         uint  maxPeople;
         uint trustMode;
-        mapping(uint => Participant) participants;
         uint participantNumber;
         string status;
+        uint deadlineDate;
+        uint endingDate;
+        mapping(uint => Participant) participants;
     }
     
     mapping(string => Trip) public trips;
@@ -29,12 +30,22 @@ contract TripWithEthereum is Ownable {
     }
 
     
-    function createTrip(string memory uuid, uint price, uint maxPeople, uint trustMode, string memory name) public payable {
+    function createTrip(string memory uuid, uint price, uint maxPeople, uint trustMode, uint deadlineDate, uint endingDate) public payable {
         assert(price <= msg.value);
+        assert(deadlineDate > now);
+        assert(endingDate > deadlineDate);
+        assert(trustMode > 0);
+        assert(trustMode <= 3);
+        assert(price > 0);
+        assert(price <= 100);
+        assert(maxPeople > 0);
+        assert(maxPeople <= 30);
         
         Trip storage newTrip = trips[uuid];
         
-        newTrip.participants[newTrip.participantNumber] = Participant(name, msg.sender, msg.value);
+        newTrip.participantNumber = 0;
+        
+        newTrip.participants[newTrip.participantNumber] = Participant( msg.sender, msg.value);
         newTrip.participantNumber++;
         
         newTrip.organizer = msg.sender;
@@ -43,8 +54,19 @@ contract TripWithEthereum is Ownable {
         newTrip.maxPeople = maxPeople;
         newTrip.trustMode = trustMode;
         newTrip.status = "ORGANIZING";
+        newTrip.deadlineDate = deadlineDate;
+        newTrip.endingDate = endingDate;
 
         tripIds.push(uuid);
+    }
+    
+    function applyToTrip(string memory uuid) public payable {
+        assert(trips[uuid].price <= msg.value);
+        assert(trips[uuid].maxPeople > trips[uuid].participantNumber);
+        assert(compareStrings(trips[uuid].status,"ORGANIZING"));
+        assert(trips[uuid].deadlineDate > now);
+        
+        trips[uuid].participants[trips[uuid].participantNumber] = Participant(msg.sender, msg.value);
     }
 
     
@@ -56,6 +78,10 @@ contract TripWithEthereum is Ownable {
                 toReturn.trustMode,
                 toReturn.status
         );
+    }
+    
+    function compareStrings (string memory a, string memory b) public pure returns (bool) {
+        return (keccak256(abi.encodePacked((a))) == keccak256(abi.encodePacked((b))) );
     }
 
 }
