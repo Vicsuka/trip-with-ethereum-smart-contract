@@ -1,7 +1,6 @@
 pragma solidity ^0.6.0;
 pragma experimental ABIEncoderV2;
 
-
 import "../Ownable.sol";
 
 contract TripWithEthereum is Ownable {
