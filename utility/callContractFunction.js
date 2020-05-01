@@ -3,7 +3,6 @@ A script that gets runs a function call in a smart contract on Ethereum. This sc
 Currently this script is set up to call the "Ebola on Ethereum" smart contract. For more info on that see the repo here: https://github.com/ThatOtherZach/Ebola-on-Ethereum
 For an explanation of this code, navigate to the wiki https://github.com/ThatOtherZach/Web3-by-Example/wiki/contract-function
 */
-
 // Require Web3 Module
 var Web3 = require('web3');
 
