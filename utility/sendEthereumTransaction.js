@@ -10,7 +10,7 @@ For an explanation of this code, navigate to the wiki https://github.com/ThatOth
 var Web3 = require('web3');
 
 // Show web3 where it needs to look for the Ethereum node.
-web3 = new Web3(new Web3.providers.HttpProvider('https://mainnet.infura.io/YOUR-API-TOKEN-HERE'));
+web3 = new Web3(new Web3.providers.HttpProvider(process.env.ETHEREUM_TEST_URL_HTTPS));
 
 // An extra module is required for this, use npm to install before running
 var Tx = require('ethereumjs-tx');
