@@ -32,7 +32,7 @@ contract TripWithEthereum is Ownable {
     
     function createTrip(string memory uuid, uint price, uint maxPeople, uint trustMode, uint deadlineDate, uint endingDate) public payable {
         assert(price <= msg.value);
-        assert(deadlineDate > now);
+        assert(deadlineDate > block.timestamp);
         assert(endingDate > deadlineDate);
         assert(trustMode > 0);
         assert(trustMode <= 3);
@@ -64,7 +64,7 @@ contract TripWithEthereum is Ownable {
         assert(trips[uuid].price <= msg.value);
         assert(trips[uuid].maxPeople > trips[uuid].participantNumber);
         assert(compareStrings(trips[uuid].status,"ORGANIZING"));
-        assert(trips[uuid].deadlineDate > now);
+        assert(trips[uuid].deadlineDate > block.timestamp);
         
         trips[uuid].participants[trips[uuid].participantNumber] = Participant(msg.sender, msg.value);
     }
