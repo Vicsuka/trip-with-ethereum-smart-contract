@@ -2,12 +2,12 @@ pragma solidity ^0.6.0;
 pragma experimental ABIEncoderV2;
 
 import "../Ownable.sol";
-
 contract TripWithEthereum is Ownable {
     
     struct Participant {
         address ethAddress;
         uint balance;
+        bool deactivated;
     }
     
     struct Trip {
@@ -37,7 +37,7 @@ contract TripWithEthereum is Ownable {
         assert(trustMode > 0);
         assert(trustMode <= 3);
         assert(price > 0);
-        assert(price <= 100);
+        assert(price <= 100000000000000000000);
         assert(maxPeople > 0);
         assert(maxPeople <= 30);
         
@@ -45,7 +45,7 @@ contract TripWithEthereum is Ownable {
         
         newTrip.participantNumber = 0;
         
-        newTrip.participants[newTrip.participantNumber] = Participant( msg.sender, msg.value);
+        newTrip.participants[newTrip.participantNumber] = Participant( msg.sender, msg.value, false);
         newTrip.participantNumber++;
         
         newTrip.organizer = msg.sender;
@@ -66,9 +66,36 @@ contract TripWithEthereum is Ownable {
         assert(compareStrings(trips[uuid].status,"ORGANIZING"));
         assert(trips[uuid].deadlineDate > block.timestamp);
         
-        trips[uuid].participants[trips[uuid].participantNumber] = Participant(msg.sender, msg.value);
+        trips[uuid].participants[trips[uuid].participantNumber] = Participant(msg.sender, msg.value , false);
+        trips[uuid].participantNumber++;
+    }
+    
+    function unsubscribeFromTrip(string memory uuid) public {
+        assert(trips[uuid].deadlineDate > block.timestamp);
+        assert(compareStrings(trips[uuid].status,"ORGANIZING"));
+        
+        bool isContained = false;
+        for (uint i=0; i<trips[uuid].participantNumber; i++) {
+            if (trips[uuid].participants[i].ethAddress == msg.sender) {
+                trips[uuid].participants[i].deactivated = true;
+                isContained = true;
+            }
+        }
+        
+        if (isContained) {
+            msg.sender.transfer(trips[uuid].price);
+        }
+
     }
 
+
+    function getTripParticipant(string calldata uuid, uint partId) external view returns (address, uint, bool) {
+        Participant memory toReturn = trips[uuid].participants[partId];
+        return (toReturn.ethAddress,
+                toReturn.balance,
+                toReturn.deactivated
+        );
+    }
     
     function getTrip(string calldata uuid) external view returns (address, uint, uint, uint, string memory) {
         Trip memory toReturn = trips[uuid];
