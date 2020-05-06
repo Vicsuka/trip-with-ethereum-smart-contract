@@ -2,6 +2,7 @@ pragma solidity ^0.6.0;
 pragma experimental ABIEncoderV2;
 
 import "../Ownable.sol";
+
 contract TripWithEthereum is Ownable {
     
     struct Participant {
@@ -80,10 +81,14 @@ contract TripWithEthereum is Ownable {
                 trips[uuid].participants[i].deactivated = true;
                 isContained = true;
             }
+            if (isContained) {
+                trips[uuid].participants[i] = trips[uuid].participants[i+1];
+            }
         }
         
         if (isContained) {
             msg.sender.transfer(trips[uuid].price);
+            trips[uuid].participantNumber--;
         }
 
     }
