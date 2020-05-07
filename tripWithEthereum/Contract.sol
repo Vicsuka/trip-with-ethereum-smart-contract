@@ -67,8 +67,19 @@ contract TripWithEthereum is Ownable {
         assert(compareStrings(trips[uuid].status,"ORGANIZING"));
         assert(trips[uuid].deadlineDate > block.timestamp);
         
-        trips[uuid].participants[trips[uuid].participantNumber] = Participant(msg.sender, msg.value , false);
-        trips[uuid].participantNumber++;
+        bool isContained = false;
+        for (uint i=0; i<trips[uuid].participantNumber; i++) {
+            if (trips[uuid].participants[i].ethAddress == msg.sender) {
+                isContained = true;
+            }
+        }
+        
+        if (!isContained) {
+            trips[uuid].participants[trips[uuid].participantNumber] = Participant(msg.sender, msg.value , false);
+            trips[uuid].participantNumber++;
+        } else {
+            revert();
+        }
     }
     
     function unsubscribeFromTrip(string memory uuid) public {
@@ -89,6 +100,8 @@ contract TripWithEthereum is Ownable {
         if (isContained) {
             msg.sender.transfer(trips[uuid].price);
             trips[uuid].participantNumber--;
+        } else {
+            revert();
         }
 
     }
@@ -117,4 +130,3 @@ contract TripWithEthereum is Ownable {
     }
 
 }
-
