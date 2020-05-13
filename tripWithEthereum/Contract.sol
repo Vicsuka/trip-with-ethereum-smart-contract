@@ -5,6 +5,57 @@ import "Ownable.sol";
 
 contract TripWithEthereum is Ownable {
     
+    event TripCreation(
+        string indexed _uuid,
+        uint _price,
+        uint _maxPeople,
+        uint _trustMode,
+        uint _deadlineDate,
+        uint _endingDate
+    );
+    
+    event TripEnd(
+        string indexed _uuid,
+        uint _endingTime
+    );
+    
+    event NewApplication(
+        string indexed _uuid,
+        address indexed _applicant,
+        uint _currentApplicants
+    );
+    
+    event Unsubscription(
+        string indexed _uuid,
+        address indexed _applicant,
+        uint _currentApplicants
+    );
+    
+    event TransactionCreation(
+        string indexed _uuid,
+        address indexed _to,
+        uint _amount,
+        uint _txNumber
+    );
+    
+    event TransactionComplete(
+        string indexed _uuid,
+        address indexed _to,
+        uint _amount,
+        uint _txNumber
+    );
+    
+     event TransactionCanceled(
+        string indexed _uuid,
+        uint _txNumber
+    );
+    
+    event VoteMade(
+        string indexed _uuid,
+        address indexed _who,
+        uint _txNumber
+    );
+    
     struct Participant {
         address payable ethAddress;
         uint balance;
@@ -71,6 +122,8 @@ contract TripWithEthereum is Ownable {
         newTrip.ended = false;
 
         tripIds.push(uuid);
+        
+        emit TripCreation(uuid, price, maxPeople, trustMode, deadlineDate, endingDate);
     }
     
     function applyToTrip(string memory uuid) public payable {
@@ -89,6 +142,7 @@ contract TripWithEthereum is Ownable {
             trips[uuid].participants[trips[uuid].participantNumber] = Participant(msg.sender, msg.value);
             trips[uuid].tripBalance += msg.value;
             trips[uuid].participantNumber++;
+            emit NewApplication(uuid, msg.sender, trips[uuid].participantNumber);
         } else {
             revert();
         }
@@ -118,6 +172,7 @@ contract TripWithEthereum is Ownable {
             trips[uuid].tripBalance -= toRefund;
             if (toRefund > 0) msg.sender.transfer(toRefund);
             trips[uuid].participantNumber--;
+            emit Unsubscription(uuid, msg.sender, trips[uuid].participantNumber);
         } else {
             revert();
         }
@@ -134,13 +189,13 @@ contract TripWithEthereum is Ownable {
             if (toRefund > 0) trips[uuid].participants[i].ethAddress.transfer(toRefund);
         }
         
-        
         trips[uuid].ended = true;
+        emit TripEnd(uuid, block.timestamp);
     }
     
     function newTransaction(string memory uuid, address payable to, uint amount) public {
-        //assert(trips[uuid].deadlineDate < block.timestamp);
-        //assert(trips[uuid].endingDate > block.timestamp);
+        assert(trips[uuid].deadlineDate < block.timestamp);
+        assert(trips[uuid].endingDate > block.timestamp);
         assert(trips[uuid].organizer == msg.sender);
         assert(trips[uuid].tripBalance >= amount * trips[uuid].participantNumber);
         assert(compareStrings(trips[uuid].transactions[trips[uuid].transactionNumber].status,"FINISHED"));
@@ -148,6 +203,8 @@ contract TripWithEthereum is Ownable {
         trips[uuid].transactionNumber++;
         
         trips[uuid].transactions[trips[uuid].transactionNumber] = Transaction(to,amount,"PENDING");
+        
+        emit TransactionCreation(uuid, to, amount, trips[uuid].transactionNumber);
         
         if (trips[uuid].trustMode == 3) {
             for (uint i=0; i<trips[uuid].participantNumber; i++) {
@@ -158,7 +215,7 @@ contract TripWithEthereum is Ownable {
             uint toTransfer = (amount * trips[uuid].participantNumber);
             to.transfer(toTransfer);
             trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
-            
+            emit TransactionComplete(uuid, to, amount, trips[uuid].transactionNumber);
         } else {
             for (uint i=0; i<trips[uuid].participantNumber; i++) {
                 if (trips[uuid].participants[i].ethAddress == msg.sender) {
@@ -173,10 +230,18 @@ contract TripWithEthereum is Ownable {
             }
             
         }
-        
     }
     
-    function getVotePercent(string memory uuid) public view returns(uint){
+    function cancelTransaction(string memory uuid) public {
+        assert(trips[uuid].deadlineDate < block.timestamp);
+        assert(trips[uuid].organizer == msg.sender);
+        assert(compareStrings(trips[uuid].transactions[trips[uuid].transactionNumber].status,"PENDING"));
+        
+        trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
+        emit TransactionCanceled(uuid, trips[uuid].transactionNumber);
+    }
+    
+    function getVotePercent(string memory uuid) public onlyOwner view returns(uint){
         uint votePercentage;
         uint yesVotes = 0;
         for (uint i=0; i<trips[uuid].participantNumber; i++) {
@@ -205,6 +270,8 @@ contract TripWithEthereum is Ownable {
             uint toTransfer = (trips[uuid].transactions[trips[uuid].transactionNumber].amount * trips[uuid].participantNumber);
             trips[uuid].transactions[trips[uuid].transactionNumber].to.transfer(toTransfer);
             trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
+            emit TransactionComplete(uuid, trips[uuid].transactions[trips[uuid].transactionNumber].to, toTransfer, trips[uuid].transactionNumber);
+            
             return (true);
         }else {
             return (false);
@@ -226,6 +293,8 @@ contract TripWithEthereum is Ownable {
             uint toTransfer = (trips[uuid].transactions[trips[uuid].transactionNumber].amount * trips[uuid].participantNumber);
             trips[uuid].transactions[trips[uuid].transactionNumber].to.transfer(toTransfer);
             trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
+            emit TransactionComplete(uuid, trips[uuid].transactions[trips[uuid].transactionNumber].to, toTransfer, trips[uuid].transactionNumber);
+            
             return (true);
         }else {
             return (false);
@@ -242,6 +311,8 @@ contract TripWithEthereum is Ownable {
             }
         }
         
+        emit VoteMade(uuid, msg.sender, trips[uuid].transactionNumber);
+        
         if (trips[uuid].trustMode == 2) {
             checkVoteMajority(uuid);
         } else if (trips[uuid].trustMode == 1) {
@@ -250,14 +321,14 @@ contract TripWithEthereum is Ownable {
     }
     
 
-    function getTripParticipant(string calldata uuid, uint partId) external view returns (address, uint) {
+    function getTripParticipant(string calldata uuid, uint partId) external onlyOwner view returns (address, uint) {
         Participant memory toReturn = trips[uuid].participants[partId];
         return (toReturn.ethAddress,
                 toReturn.balance
         );
     }
     
-    function getTripTransaction(string calldata uuid, uint transId) external view returns (address, uint, string memory) {
+    function getTripTransaction(string calldata uuid, uint transId) external onlyOwner view returns (address, uint, string memory) {
         Transaction memory toReturn = trips[uuid].transactions[transId];
         return (toReturn.to,
                 toReturn.amount,
@@ -265,7 +336,7 @@ contract TripWithEthereum is Ownable {
         );
     }
     
-    function getTrip(string calldata uuid) external view returns (address, uint, uint, uint) {
+    function getTrip(string calldata uuid) external onlyOwner view returns (address, uint, uint, uint) {
         Trip memory toReturn = trips[uuid];
         return (toReturn.organizer,
                 toReturn.price,
