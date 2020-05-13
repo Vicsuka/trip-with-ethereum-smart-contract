@@ -11,7 +11,8 @@ contract TripWithEthereum is Ownable {
         uint _maxPeople,
         uint _trustMode,
         uint _deadlineDate,
-        uint _endingDate
+        uint _endingDate,
+        uint _creationDate
     );
     
     event TripEnd(
@@ -22,38 +23,44 @@ contract TripWithEthereum is Ownable {
     event NewApplication(
         string indexed _uuid,
         address indexed _applicant,
-        uint _currentApplicants
+        uint _currentApplicants,
+        uint _creationDate
     );
     
     event Unsubscription(
         string indexed _uuid,
         address indexed _applicant,
-        uint _currentApplicants
+        uint _currentApplicants,
+        uint _creationDate
     );
     
     event TransactionCreation(
         string indexed _uuid,
         address indexed _to,
         uint _amount,
-        uint _txNumber
+        uint _txNumber,
+        uint _creationDate
     );
     
     event TransactionComplete(
         string indexed _uuid,
         address indexed _to,
         uint _amount,
-        uint _txNumber
+        uint _txNumber,
+        uint _creationDate
     );
     
      event TransactionCanceled(
         string indexed _uuid,
-        uint _txNumber
+        uint _txNumber,
+        uint _creationDate
     );
     
     event VoteMade(
         string indexed _uuid,
         address indexed _who,
-        uint _txNumber
+        uint _txNumber,
+        uint _creationDate
     );
     
     struct Participant {
@@ -123,7 +130,7 @@ contract TripWithEthereum is Ownable {
 
         tripIds.push(uuid);
         
-        emit TripCreation(uuid, price, maxPeople, trustMode, deadlineDate, endingDate);
+        emit TripCreation(uuid, price, maxPeople, trustMode, deadlineDate, endingDate, block.timestamp);
     }
     
     function applyToTrip(string memory uuid) public payable {
@@ -142,7 +149,7 @@ contract TripWithEthereum is Ownable {
             trips[uuid].participants[trips[uuid].participantNumber] = Participant(msg.sender, msg.value);
             trips[uuid].tripBalance += msg.value;
             trips[uuid].participantNumber++;
-            emit NewApplication(uuid, msg.sender, trips[uuid].participantNumber);
+            emit NewApplication(uuid, msg.sender, trips[uuid].participantNumber, block.timestamp);
         } else {
             revert();
         }
@@ -172,7 +179,7 @@ contract TripWithEthereum is Ownable {
             trips[uuid].tripBalance -= toRefund;
             if (toRefund > 0) msg.sender.transfer(toRefund);
             trips[uuid].participantNumber--;
-            emit Unsubscription(uuid, msg.sender, trips[uuid].participantNumber);
+            emit Unsubscription(uuid, msg.sender, trips[uuid].participantNumber, block.timestamp);
         } else {
             revert();
         }
@@ -204,7 +211,7 @@ contract TripWithEthereum is Ownable {
         
         trips[uuid].transactions[trips[uuid].transactionNumber] = Transaction(to,amount,"PENDING");
         
-        emit TransactionCreation(uuid, to, amount, trips[uuid].transactionNumber);
+        emit TransactionCreation(uuid, to, amount, trips[uuid].transactionNumber, block.timestamp);
         
         if (trips[uuid].trustMode == 3) {
             for (uint i=0; i<trips[uuid].participantNumber; i++) {
@@ -215,7 +222,7 @@ contract TripWithEthereum is Ownable {
             uint toTransfer = (amount * trips[uuid].participantNumber);
             to.transfer(toTransfer);
             trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
-            emit TransactionComplete(uuid, to, amount, trips[uuid].transactionNumber);
+            emit TransactionComplete(uuid, to, amount, trips[uuid].transactionNumber, block.timestamp);
         } else {
             for (uint i=0; i<trips[uuid].participantNumber; i++) {
                 if (trips[uuid].participants[i].ethAddress == msg.sender) {
@@ -238,7 +245,7 @@ contract TripWithEthereum is Ownable {
         assert(compareStrings(trips[uuid].transactions[trips[uuid].transactionNumber].status,"PENDING"));
         
         trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
-        emit TransactionCanceled(uuid, trips[uuid].transactionNumber);
+        emit TransactionCanceled(uuid, trips[uuid].transactionNumber, block.timestamp);
     }
     
     function getVotePercent(string memory uuid) public onlyOwner view returns(uint){
@@ -270,7 +277,7 @@ contract TripWithEthereum is Ownable {
             uint toTransfer = (trips[uuid].transactions[trips[uuid].transactionNumber].amount * trips[uuid].participantNumber);
             trips[uuid].transactions[trips[uuid].transactionNumber].to.transfer(toTransfer);
             trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
-            emit TransactionComplete(uuid, trips[uuid].transactions[trips[uuid].transactionNumber].to, toTransfer, trips[uuid].transactionNumber);
+            emit TransactionComplete(uuid, trips[uuid].transactions[trips[uuid].transactionNumber].to, toTransfer, trips[uuid].transactionNumber, block.timestamp);
             
             return (true);
         }else {
@@ -293,7 +300,7 @@ contract TripWithEthereum is Ownable {
             uint toTransfer = (trips[uuid].transactions[trips[uuid].transactionNumber].amount * trips[uuid].participantNumber);
             trips[uuid].transactions[trips[uuid].transactionNumber].to.transfer(toTransfer);
             trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
-            emit TransactionComplete(uuid, trips[uuid].transactions[trips[uuid].transactionNumber].to, toTransfer, trips[uuid].transactionNumber);
+            emit TransactionComplete(uuid, trips[uuid].transactions[trips[uuid].transactionNumber].to, toTransfer, trips[uuid].transactionNumber, block.timestamp);
             
             return (true);
         }else {
@@ -311,7 +318,7 @@ contract TripWithEthereum is Ownable {
             }
         }
         
-        emit VoteMade(uuid, msg.sender, trips[uuid].transactionNumber);
+        emit VoteMade(uuid, msg.sender, trips[uuid].transactionNumber, block.timestamp);
         
         if (trips[uuid].trustMode == 2) {
             checkVoteMajority(uuid);
