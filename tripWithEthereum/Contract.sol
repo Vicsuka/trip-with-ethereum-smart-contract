@@ -6,13 +6,12 @@ import "Ownable.sol";
 contract TripWithEthereum is Ownable {
     
     struct Participant {
-        address ethAddress;
+        address payable ethAddress;
         uint balance;
-        bool deactivated;
     }
     
     struct Transaction {
-        address to;
+        address payable to;
         uint amount;
         string status;
         mapping(uint => bool) votes;
@@ -28,6 +27,7 @@ contract TripWithEthereum is Ownable {
         uint deadlineDate;
         uint endingDate;
         uint transactionNumber;
+        bool ended;
         mapping(uint => Participant) participants;
         mapping(uint => Transaction) transactions;
     }
@@ -56,7 +56,8 @@ contract TripWithEthereum is Ownable {
         newTrip.participantNumber = 0;
         newTrip.transactionNumber = 0;
         
-        newTrip.participants[newTrip.participantNumber] = Participant( msg.sender, msg.value, false);
+        newTrip.transactions[newTrip.transactionNumber] = Transaction( msg.sender, 0, "FINISHED");
+        newTrip.participants[newTrip.participantNumber] = Participant( msg.sender, msg.value);
         newTrip.participantNumber++;
         
         newTrip.organizer = msg.sender;
@@ -67,6 +68,7 @@ contract TripWithEthereum is Ownable {
         newTrip.trustMode = trustMode;
         newTrip.deadlineDate = deadlineDate;
         newTrip.endingDate = endingDate;
+        newTrip.ended = false;
 
         tripIds.push(uuid);
     }
@@ -84,7 +86,7 @@ contract TripWithEthereum is Ownable {
         }
         
         if (!isContained) {
-            trips[uuid].participants[trips[uuid].participantNumber] = Participant(msg.sender, msg.value , false);
+            trips[uuid].participants[trips[uuid].participantNumber] = Participant(msg.sender, msg.value);
             trips[uuid].tripBalance += msg.value;
             trips[uuid].participantNumber++;
         } else {
@@ -94,13 +96,13 @@ contract TripWithEthereum is Ownable {
     
     function unsubscribeFromTrip(string memory uuid) public {
         assert(trips[uuid].deadlineDate > block.timestamp);
+        assert(trips[uuid].organizer != msg.sender);
         
         bool isContained = false;
         uint index;
         for (uint i=0; i<trips[uuid].participantNumber; i++) {
             if (trips[uuid].participants[i].ethAddress == msg.sender) {
                 index = i;
-                trips[uuid].participants[i].deactivated = true;
                 isContained = true;
             }
             if (isContained) {
@@ -108,18 +110,31 @@ contract TripWithEthereum is Ownable {
             }
         }
         
-        assert(trips[uuid].participants[index].balance > 0);
+        assert(trips[uuid].participants[index].balance >= 0);
         
         if (isContained) {
             uint toRefund = trips[uuid].participants[index].balance;
             trips[uuid].participants[index].balance = 0;
             trips[uuid].tripBalance -= toRefund;
-            msg.sender.transfer(toRefund);
+            if (toRefund > 0) msg.sender.transfer(toRefund);
             trips[uuid].participantNumber--;
         } else {
             revert();
         }
 
+    }
+    
+    function endTrip(string memory uuid) public {
+        assert(trips[uuid].endingDate < block.timestamp);
+        for (uint i=0; i<trips[uuid].participantNumber; i++) {
+            uint toRefund = trips[uuid].participants[i].balance;
+            trips[uuid].participants[i].balance = 0;
+            trips[uuid].tripBalance -= toRefund;
+            if (toRefund > 0) trips[uuid].participants[i].ethAddress.transfer(toRefund);
+        }
+        
+        
+        trips[uuid].ended = true;
     }
     
     function newTransaction(string memory uuid, address payable to, uint amount) public {
@@ -144,28 +159,90 @@ contract TripWithEthereum is Ownable {
         } else {
             for (uint i=0; i<trips[uuid].participantNumber; i++) {
                 if (trips[uuid].participants[i].ethAddress == msg.sender) {
-                    trips[uuid].participants[i].balance -= amount;
-                    trips[uuid].tripBalance -= amount;
                     trips[uuid].transactions[trips[uuid].transactionNumber].votes[i] = true;
                 } else {
                     trips[uuid].transactions[trips[uuid].transactionNumber].votes[i] = false;
                 }
             }
             
+            if (trips[uuid].trustMode == 2) {
+                checkVoteMajority(uuid);
+            }
+            
         }
         
     }
-
-
-    function makeVote() {
+    
+    function checkVoteMajority(string memory uuid) public {
+        uint votePercentage;
+        uint yesVotes = 0;
+        for (uint i=0; i<trips[uuid].participantNumber; i++) {
+            if (trips[uuid].transactions[trips[uuid].transactionNumber].votes[i] == true) yesVotes += 1;
+        }
+        votePercentage = (yesVotes * 100) / (trips[uuid].participantNumber);
         
+        if (yesVotes >= 50) {
+            for (uint i=0; i<trips[uuid].participantNumber; i++) {
+                trips[uuid].participants[i].balance -= trips[uuid].transactions[trips[uuid].transactionNumber].amount;
+                trips[uuid].tripBalance -= trips[uuid].transactions[trips[uuid].transactionNumber].amount;
+                
+            }
+            uint toTransfer = (trips[uuid].transactions[trips[uuid].transactionNumber].amount * trips[uuid].participantNumber);
+            trips[uuid].transactions[trips[uuid].transactionNumber].to.transfer(toTransfer);
+            trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
+            
+        }
+    }
+    
+    function checkVoteAll(string memory uuid) public {
+        bool everyVote = true;
+        for (uint i=0; i<trips[uuid].participantNumber; i++) {
+            if (trips[uuid].transactions[trips[uuid].transactionNumber].votes[i] != true) everyVote = false;
+        }
+
+        if (everyVote) {
+            for (uint i=0; i<trips[uuid].participantNumber; i++) {
+                trips[uuid].participants[i].balance -= trips[uuid].transactions[trips[uuid].transactionNumber].amount;
+                trips[uuid].tripBalance -= trips[uuid].transactions[trips[uuid].transactionNumber].amount;
+                
+            }
+            uint toTransfer = (trips[uuid].transactions[trips[uuid].transactionNumber].amount * trips[uuid].participantNumber);
+            trips[uuid].transactions[trips[uuid].transactionNumber].to.transfer(toTransfer);
+            trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
+            
+        }
     }
 
-    function getTripParticipant(string calldata uuid, uint partId) external view returns (address, uint, bool) {
+
+    function makeVote(string memory uuid) public {
+        assert(compareStrings(trips[uuid].transactions[trips[uuid].transactionNumber].status,"PENDING"));
+        
+        for (uint i=0; i<trips[uuid].participantNumber; i++) {
+            if (trips[uuid].participants[i].ethAddress == msg.sender) {
+                trips[uuid].transactions[trips[uuid].transactionNumber].votes[i] = true;
+            }
+        }
+        
+        if (trips[uuid].trustMode == 2) {
+            checkVoteMajority(uuid);
+        } else if (trips[uuid].trustMode == 1) {
+            checkVoteAll(uuid);
+        }
+    }
+    
+
+    function getTripParticipant(string calldata uuid, uint partId) external view returns (address, uint) {
         Participant memory toReturn = trips[uuid].participants[partId];
         return (toReturn.ethAddress,
-                toReturn.balance,
-                toReturn.deactivated
+                toReturn.balance
+        );
+    }
+    
+    function getTripTransaction(string calldata uuid, uint transId) external view returns (address, uint, string memory) {
+        Transaction memory toReturn = trips[uuid].transactions[transId];
+        return (toReturn.to,
+                toReturn.amount,
+                toReturn.status
         );
     }
     
