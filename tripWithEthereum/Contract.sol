@@ -173,7 +173,7 @@ contract TripWithEthereum is Ownable {
         
     }
     
-    function checkVoteMajority(string memory uuid) public {
+    function getVotePercent(string memory uuid) public view returns(uint){
         uint votePercentage;
         uint yesVotes = 0;
         for (uint i=0; i<trips[uuid].participantNumber; i++) {
@@ -181,7 +181,19 @@ contract TripWithEthereum is Ownable {
         }
         votePercentage = (yesVotes * 100) / (trips[uuid].participantNumber);
         
-        if (yesVotes >= 50) {
+        return (votePercentage);
+    }
+    
+    
+    function checkVoteMajority(string memory uuid) public returns(bool){
+        uint votePercentage;
+        uint yesVotes = 0;
+        for (uint i=0; i<trips[uuid].participantNumber; i++) {
+            if (trips[uuid].transactions[trips[uuid].transactionNumber].votes[i] == true) yesVotes += 1;
+        }
+        votePercentage = (yesVotes * 100) / (trips[uuid].participantNumber);
+        
+        if (votePercentage >= 50) {
             for (uint i=0; i<trips[uuid].participantNumber; i++) {
                 trips[uuid].participants[i].balance -= trips[uuid].transactions[trips[uuid].transactionNumber].amount;
                 trips[uuid].tripBalance -= trips[uuid].transactions[trips[uuid].transactionNumber].amount;
@@ -190,11 +202,13 @@ contract TripWithEthereum is Ownable {
             uint toTransfer = (trips[uuid].transactions[trips[uuid].transactionNumber].amount * trips[uuid].participantNumber);
             trips[uuid].transactions[trips[uuid].transactionNumber].to.transfer(toTransfer);
             trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
-            
+            return (true);
+        }else {
+            return (false);
         }
     }
     
-    function checkVoteAll(string memory uuid) public {
+    function checkVoteAll(string memory uuid) public returns(bool){
         bool everyVote = true;
         for (uint i=0; i<trips[uuid].participantNumber; i++) {
             if (trips[uuid].transactions[trips[uuid].transactionNumber].votes[i] != true) everyVote = false;
@@ -209,7 +223,9 @@ contract TripWithEthereum is Ownable {
             uint toTransfer = (trips[uuid].transactions[trips[uuid].transactionNumber].amount * trips[uuid].participantNumber);
             trips[uuid].transactions[trips[uuid].transactionNumber].to.transfer(toTransfer);
             trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
-            
+            return (true);
+        }else {
+            return (false);
         }
     }
 
