@@ -126,6 +126,7 @@ contract TripWithEthereum is Ownable {
     
     function endTrip(string memory uuid) public {
         assert(trips[uuid].endingDate < block.timestamp);
+        
         for (uint i=0; i<trips[uuid].participantNumber; i++) {
             uint toRefund = trips[uuid].participants[i].balance;
             trips[uuid].participants[i].balance = 0;
@@ -138,6 +139,8 @@ contract TripWithEthereum is Ownable {
     }
     
     function newTransaction(string memory uuid, address payable to, uint amount) public {
+        //assert(trips[uuid].deadlineDate < block.timestamp);
+        //assert(trips[uuid].endingDate > block.timestamp);
         assert(trips[uuid].organizer == msg.sender);
         assert(trips[uuid].tripBalance >= amount * trips[uuid].participantNumber);
         assert(compareStrings(trips[uuid].transactions[trips[uuid].transactionNumber].status,"FINISHED"));
