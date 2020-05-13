@@ -161,21 +161,19 @@ contract TripWithEthereum is Ownable {
         
         bool isContained = false;
         uint index;
+        uint toRefund;
         for (uint i=0; i<trips[uuid].participantNumber; i++) {
             if (trips[uuid].participants[i].ethAddress == msg.sender) {
                 index = i;
                 isContained = true;
+                toRefund = trips[uuid].participants[index].balance;
             }
             if (isContained) {
                 trips[uuid].participants[i] = trips[uuid].participants[i+1];
             }
         }
         
-        assert(trips[uuid].participants[index].balance >= 0);
-        
         if (isContained) {
-            uint toRefund = trips[uuid].participants[index].balance;
-            trips[uuid].participants[index].balance = 0;
             trips[uuid].tripBalance -= toRefund;
             if (toRefund > 0) msg.sender.transfer(toRefund);
             trips[uuid].participantNumber--;
