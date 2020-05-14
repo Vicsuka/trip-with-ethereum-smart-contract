@@ -22,21 +22,21 @@ contract TripWithEthereum is Ownable {
     
     event NewApplication(
         string indexed _uuid,
-        address indexed _applicant,
+        address _applicant,
         uint _currentApplicants,
         uint _creationDate
     );
     
     event Unsubscription(
         string indexed _uuid,
-        address indexed _applicant,
+        address _applicant,
         uint _currentApplicants,
         uint _creationDate
     );
     
     event TransactionCreation(
         string indexed _uuid,
-        address indexed _to,
+        address _to,
         uint _amount,
         uint _txNumber,
         string _desc,
@@ -45,7 +45,7 @@ contract TripWithEthereum is Ownable {
     
     event TransactionComplete(
         string indexed _uuid,
-        address indexed _to,
+        address _to,
         uint _amount,
         uint _txNumber,
         string _desc,
@@ -61,7 +61,7 @@ contract TripWithEthereum is Ownable {
     
     event VoteMade(
         string indexed _uuid,
-        address indexed _who,
+        address _who,
         uint _txNumber,
         uint _creationDate
     );
