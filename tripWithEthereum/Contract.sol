@@ -39,6 +39,7 @@ contract TripWithEthereum is Ownable {
         address indexed _to,
         uint _amount,
         uint _txNumber,
+        string _desc,
         uint _creationDate
     );
     
@@ -47,12 +48,14 @@ contract TripWithEthereum is Ownable {
         address indexed _to,
         uint _amount,
         uint _txNumber,
+        string _desc,
         uint _creationDate
     );
     
      event TransactionCanceled(
         string indexed _uuid,
         uint _txNumber,
+        string _desc,
         uint _creationDate
     );
     
@@ -72,6 +75,7 @@ contract TripWithEthereum is Ownable {
         address payable to;
         uint amount;
         string status;
+        string description;
         mapping(uint => bool) votes;
     }
     
@@ -114,7 +118,7 @@ contract TripWithEthereum is Ownable {
         newTrip.participantNumber = 0;
         newTrip.transactionNumber = 0;
         
-        newTrip.transactions[newTrip.transactionNumber] = Transaction( msg.sender, 0, "FINISHED");
+        newTrip.transactions[newTrip.transactionNumber] = Transaction( msg.sender, 0, "FINISHED","TRIP CREATION");
         newTrip.participants[newTrip.participantNumber] = Participant( msg.sender, msg.value);
         newTrip.participantNumber++;
         
@@ -198,7 +202,7 @@ contract TripWithEthereum is Ownable {
         emit TripEnd(uuid, block.timestamp);
     }
     
-    function newTransaction(string memory uuid, address payable to, uint amount) public {
+    function newTransaction(string memory uuid, address payable to, uint amount, string memory description) public {
         assert(trips[uuid].deadlineDate < block.timestamp);
         assert(trips[uuid].endingDate > block.timestamp);
         assert(trips[uuid].organizer == msg.sender);
@@ -207,9 +211,9 @@ contract TripWithEthereum is Ownable {
         
         trips[uuid].transactionNumber++;
         
-        trips[uuid].transactions[trips[uuid].transactionNumber] = Transaction(to,amount,"PENDING");
+        trips[uuid].transactions[trips[uuid].transactionNumber] = Transaction(to,amount,"PENDING",description);
         
-        emit TransactionCreation(uuid, to, amount, trips[uuid].transactionNumber, block.timestamp);
+        emit TransactionCreation(uuid, to, amount, trips[uuid].transactionNumber, description ,block.timestamp);
         
         if (trips[uuid].trustMode == 3) {
             for (uint i=0; i<trips[uuid].participantNumber; i++) {
@@ -220,7 +224,7 @@ contract TripWithEthereum is Ownable {
             uint toTransfer = (amount * trips[uuid].participantNumber);
             to.transfer(toTransfer);
             trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
-            emit TransactionComplete(uuid, to, amount, trips[uuid].transactionNumber, block.timestamp);
+            emit TransactionComplete(uuid, to, amount, trips[uuid].transactionNumber, description, block.timestamp);
         } else {
             for (uint i=0; i<trips[uuid].participantNumber; i++) {
                 if (trips[uuid].participants[i].ethAddress == msg.sender) {
@@ -243,7 +247,7 @@ contract TripWithEthereum is Ownable {
         assert(compareStrings(trips[uuid].transactions[trips[uuid].transactionNumber].status,"PENDING"));
         
         trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
-        emit TransactionCanceled(uuid, trips[uuid].transactionNumber, block.timestamp);
+        emit TransactionCanceled(uuid, trips[uuid].transactionNumber, trips[uuid].transactions[trips[uuid].transactionNumber].description, block.timestamp);
     }
     
     function getVotePercent(string memory uuid) public onlyOwner view returns(uint){
@@ -275,7 +279,7 @@ contract TripWithEthereum is Ownable {
             uint toTransfer = (trips[uuid].transactions[trips[uuid].transactionNumber].amount * trips[uuid].participantNumber);
             trips[uuid].transactions[trips[uuid].transactionNumber].to.transfer(toTransfer);
             trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
-            emit TransactionComplete(uuid, trips[uuid].transactions[trips[uuid].transactionNumber].to, toTransfer, trips[uuid].transactionNumber, block.timestamp);
+            emit TransactionComplete(uuid, trips[uuid].transactions[trips[uuid].transactionNumber].to, toTransfer, trips[uuid].transactionNumber, trips[uuid].transactions[trips[uuid].transactionNumber].description, block.timestamp);
             
             return (true);
         }else {
@@ -298,7 +302,7 @@ contract TripWithEthereum is Ownable {
             uint toTransfer = (trips[uuid].transactions[trips[uuid].transactionNumber].amount * trips[uuid].participantNumber);
             trips[uuid].transactions[trips[uuid].transactionNumber].to.transfer(toTransfer);
             trips[uuid].transactions[trips[uuid].transactionNumber].status = "FINISHED";
-            emit TransactionComplete(uuid, trips[uuid].transactions[trips[uuid].transactionNumber].to, toTransfer, trips[uuid].transactionNumber, block.timestamp);
+            emit TransactionComplete(uuid, trips[uuid].transactions[trips[uuid].transactionNumber].to, toTransfer, trips[uuid].transactionNumber, trips[uuid].transactions[trips[uuid].transactionNumber].description, block.timestamp);
             
             return (true);
         }else {
@@ -333,11 +337,12 @@ contract TripWithEthereum is Ownable {
         );
     }
     
-    function getTripTransaction(string calldata uuid, uint transId) external onlyOwner view returns (address, uint, string memory) {
+    function getTripTransaction(string calldata uuid, uint transId) external onlyOwner view returns (address, uint, string memory, string memory) {
         Transaction memory toReturn = trips[uuid].transactions[transId];
         return (toReturn.to,
                 toReturn.amount,
-                toReturn.status
+                toReturn.status,
+                toReturn.description
         );
     }
     
